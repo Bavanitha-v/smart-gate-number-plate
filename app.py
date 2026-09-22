@@ -7,34 +7,22 @@ from database import (
     get_recent_logs, log_access, is_plate_registered
 )
 from anpr import ANPREngine
-from generate_sample_video import create_sample_video
 
 app = Flask(__name__)
 
 # Global ANPR Engine & Video State
 anpr_engine = ANPREngine()
-current_source_type = "sample"  # Default to sample video for instant beginner test
-sample_video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample_traffic.mp4")
-
-# Ensure sample video exists
-if not os.path.exists(sample_video_path):
-    create_sample_video()
+current_source_type = "webcam"  # Default to live webcam
 
 def get_video_capture():
     """Retrieve video capture object based on current source type."""
-    global current_source_type, sample_video_path
-    if current_source_type == "webcam":
-        print("Opening webcam (Index 0)...")
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("Webcam unavailable. Falling back to sample video stream.")
-            current_source_type = "sample"
-            return cv2.VideoCapture(sample_video_path)
-        return cap
-    else:
-        if not os.path.exists(sample_video_path):
-            create_sample_video()
-        return cv2.VideoCapture(sample_video_path)
+    global current_source_type
+    print("Opening webcam (Index 0)...")
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Webcam unavailable.")
+        current_source_type = "webcam"
+    return cap
 
 def generate_frames():
     """MJPEG stream frame generator with looping for sample video."""
@@ -44,13 +32,8 @@ def generate_frames():
     while True:
         success, frame = cap.read()
         if not success:
-            # Loop sample video when reaching end
-            if current_source_type == "sample":
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-            else:
-                time.sleep(0.1)
-                continue
+            time.sleep(0.1)
+            continue
 
         # Process frame with ANPR detection engine
         processed_frame = anpr_engine.process_frame(frame)
