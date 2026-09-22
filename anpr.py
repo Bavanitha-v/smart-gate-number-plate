@@ -8,9 +8,14 @@ from database import is_plate_registered, log_access
 
 class ANPREngine:
     def __init__(self):
-        print("Initializing EasyOCR Engine (CPU mode)...")
-        # Initialize EasyOCR reader for English characters
-        self.reader = easyocr.Reader(['en'], gpu=False)
+        # Initialize EasyOCR reader for English characters with error handling
+        self.reader = None
+        try:
+            print("Initializing EasyOCR Engine (CPU mode)...")
+            self.reader = easyocr.Reader(['en'], gpu=False)
+            print("EasyOCR initialized successfully.")
+        except Exception as e:
+            print(f"EasyOCR initialization notice: {e}. OCR will operate in fallback mode.")
         
         # Try loading YOLOv8 model if available
         self.yolo_model = None
@@ -37,7 +42,6 @@ class ANPREngine:
             return ""
         # Remove non-alphanumeric characters and convert to uppercase
         clean = re.sub(r'[^A-Za-z0-9]', '', str(text)).upper()
-        # Common OCR fixes (e.g., 'O' -> '0', 'I' -> '1' when appropriate)
         return clean
 
     def is_valid_plate_format(self, text):
@@ -76,7 +80,7 @@ class ANPREngine:
         if frame is None:
             return frame
 
-        h, w, _ = frame.shape
+        h, w = frame.shape[:2]
         plate_box = None
 
         # 1. Try YOLO object detection first if loaded
@@ -88,7 +92,8 @@ class ANPREngine:
                         cls_id = int(box.cls[0])
                         # Detect vehicles (car=2, motorcycle=3, bus=5, truck=7 in COCO dataset)
                         if cls_id in [2, 3, 5, 7]:
-                            bx, by, bw, bh = map(int, box.xywh[0])
+                            box_xywh = box.xywh[0].tolist() if hasattr(box.xywh[0], 'tolist') else box.xywh[0]
+                            bx, by, bw, bh = map(int, box_xywh)
                             # Define expected lower region of vehicle for plate detection
                             px = max(0, bx - bw // 2)
                             py = max(0, by)
@@ -96,18 +101,19 @@ class ANPREngine:
                             ph = min(h - py, bh // 2)
                             if pw > 40 and ph > 20:
                                 plate_box = (px, py, pw, ph)
-                                # Draw subtle vehicle boundary box
-                                cv2.rectangle(frame, (px, py - bh//2), (px + pw, py + ph), (255, 165, 0), 2)
+                                # Draw subtle vehicle boundary box safely
+                                rect_top = max(0, py - bh // 2)
+                                cv2.rectangle(frame, (px, rect_top), (px + pw, py + ph), (255, 165, 0), 2)
                                 break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"YOLO detection exception: {e}")
 
         # 2. Fallback to OpenCV Contour Detection if YOLO didn't lock plate
         if plate_box is None:
             plate_box = self.detect_plate_region_opencv(frame)
 
         # 3. Perform OCR on detected plate box area
-        if plate_box is not None:
+        if plate_box is not None and self.reader is not None:
             px, py, pw, ph = plate_box
             # Extract plate crop with margin
             margin = 5
@@ -118,21 +124,27 @@ class ANPREngine:
             plate_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
 
             if plate_crop.size > 0:
-                # Preprocess cropped image for higher OCR accuracy
+                # Preprocess cropped image
                 gray_crop = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2GRAY)
                 contrast_crop = cv2.threshold(gray_crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
-                # Run EasyOCR
+                # Run EasyOCR (try original crop first, then contrast threshold crop)
                 try:
-                    ocr_results = self.reader.readtext(contrast_crop)
+                    ocr_results = self.reader.readtext(plate_crop)
+                    if not ocr_results:
+                        ocr_results = self.reader.readtext(contrast_crop)
+
                     best_text = ""
                     best_conf = 0.0
 
-                    for bbox, text, prob in ocr_results:
-                        cleaned = self.clean_plate_text(text)
-                        if self.is_valid_plate_format(cleaned) and prob > best_conf:
-                            best_text = cleaned
-                            best_conf = prob
+                    for item in ocr_results:
+                        if len(item) >= 2:
+                            text = item[1]
+                            prob = item[2] if len(item) >= 3 else 1.0
+                            cleaned = self.clean_plate_text(text)
+                            if self.is_valid_plate_format(cleaned) and prob > best_conf:
+                                best_text = cleaned
+                                best_conf = float(prob)
 
                     if best_text:
                         self.last_detected_plate = best_text
@@ -163,10 +175,10 @@ class ANPREngine:
                         # Draw highlight bounding box around detected plate
                         color = (0, 255, 0) if is_reg else (0, 0, 255)
                         cv2.rectangle(frame, (px, py), (px + pw, py + ph), color, 3)
-                        cv2.putText(frame, f"{best_text}", (px, py - 10),
+                        cv2.putText(frame, f"{best_text}", (px, max(20, py - 10)),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
                 except Exception as e:
-                    pass
+                    print(f"OCR detection error: {e}")
 
         # 4. Draw Security Gate Top Status Banner
         banner_bg = (20, 30, 40)
@@ -182,9 +194,10 @@ class ANPREngine:
         cv2.putText(frame, f"STATUS: {self.gate_status}", (20, 48),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.1, gate_color, 3)
 
-        # Vehicle status sub-text
+        # Vehicle status sub-text safely placed
         sub_text = f"PLATE: {self.last_detected_plate} | VEHICLE: {self.vehicle_status}"
-        cv2.putText(frame, sub_text, (w - 560, 45),
+        text_x = max(10, w - 560)
+        cv2.putText(frame, sub_text, (text_x, 45),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220), 2)
 
         return frame
