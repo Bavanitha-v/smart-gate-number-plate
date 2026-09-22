@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Gate & ANPR Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="app-header">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h1>AI Smart Gate Control System</h1>
+                <p class="subtitle">Automatic Number Plate Recognition (ANPR) & Access Control</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <!-- Video Source Selector -->
+            <div class="source-toggle">
+                <button id="btn-source-sample" class="source-btn active" onclick="switchVideoSource('sample')">
+                    <i class="fa-solid fa-film"></i> Test Video
+                </button>
+                <button id="btn-source-webcam" class="source-btn" onclick="switchVideoSource('webcam')">
+                    <i class="fa-solid fa-camera"></i> Live Camera
+                </button>
+            </div>
+
+            <!-- Live Status & Clock -->
+            <div class="system-time">
+                <i class="fa-regular fa-clock"></i>
+                <span id="live-clock">--:--:--</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="dashboard-container">
+        
+        <!-- Row 1: Camera Feed & Real-time Gate HUD -->
+        <section class="grid-top">
+            
+            <!-- Video Feed Card -->
+            <div class="card video-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-video"></i> Live ANPR Security Camera</h2>
+                    <span class="badge badge-live"><i class="fa-solid fa-circle blink"></i> LIVE FEED</span>
+                </div>
+                <div class="video-container">
+                    <img id="video-stream" src="{{ url_for('video_feed') }}" alt="ANPR Live Stream">
+                </div>
+                
+                <!-- Manual Override Controls -->
+                <div class="manual-controls">
+                    <span class="control-label">Manual Override:</span>
+                    <button class="btn btn-open" onclick="triggerManualGate('OPEN')">
+                        <i class="fa-solid fa-door-open"></i> OPEN GATE
+                    </button>
+                    <button class="btn btn-close" onclick="triggerManualGate('CLOSE')">
+                        <i class="fa-solid fa-door-closed"></i> CLOSE GATE
+                    </button>
+                </div>
+            </div>
+
+            <!-- ANPR Real-time Status Card -->
+            <div class="card status-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-square-parking"></i> Recognition Metrics</h2>
+                    <span class="badge badge-info" id="source-badge">Source: Test Video</span>
+                </div>
+
+                <!-- Gate Status Banner -->
+                <div id="gate-banner" class="gate-banner status-closed">
+                    <div class="gate-icon">
+                        <i id="gate-icon-i" class="fa-solid fa-lock"></i>
+                    </div>
+                    <div class="gate-text">
+                        <span class="banner-title" id="gate-status-text">GATE CLOSED</span>
+                        <span class="banner-sub" id="vehicle-status-sub">UNKNOWN VEHICLE</span>
+                    </div>
+                </div>
+
+                <!-- Detection Details Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <span class="metric-label">Detected Plate Number</span>
+                        <div class="plate-display" id="metric-plate">Scanning...</div>
+                    </div>
+                    
+                    <div class="metric-box">
+                        <span class="metric-label">Vehicle Owner</span>
+                        <div class="metric-value" id="metric-owner">-</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <span class="metric-label">Access Decision</span>
+                        <div class="metric-value highlight" id="metric-decision">WAITING...</div>
+                    </div>
+
+                    <div class="metric-box">
+                        <span class="metric-label">OCR Confidence</span>
+                        <div class="metric-value" id="metric-confidence">0%</div>
+                    </div>
+                </div>
+
+                <!-- Vehicle Registration Quick Form -->
+                <div class="registration-panel">
+                    <h3><i class="fa-solid fa-address-card"></i> Register New Vehicle</h3>
+                    <form id="reg-form" onsubmit="registerVehicle(event)">
+                        <div class="form-row">
+                            <input type="text" id="reg-plate" placeholder="Plate Number (e.g. KA01AB1234)" required>
+                            <input type="text" id="reg-owner" placeholder="Owner Name" required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-plus"></i> Register
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Row 2: Entry History Table & Registered Vehicles -->
+        <section class="grid-bottom">
+            
+            <!-- Entry History Table -->
+            <div class="card logs-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-list-check"></i> Real-Time Access Entry Logs</h2>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchLogs()">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th># ID</th>
+                                <th>Timestamp</th>
+                                <th>License Plate</th>
+                                <th>Owner Name</th>
+                                <th>Vehicle Status</th>
+                                <th>Gate Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center">Loading logs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Registered Vehicles Table -->
+            <div class="card registered-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-car-side"></i> Registered Vehicles Database</h2>
+                    <span class="badge badge-count" id="reg-count-badge">0 Registered</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Plate Number</th>
+                                <th>Owner Name</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehicles-table-body">
+                            <tr>
+                                <td colspan="4" class="text-center">Loading vehicles...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>AI Smart Gate ANPR Security System &bull; Powered by OpenCV, YOLO & EasyOCR &bull; SQLite Database</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
