@@ -18,14 +18,23 @@ class ANPREngine:
             print(f"EasyOCR initialization notice: {e}. OCR will operate in fallback mode.")
         
         # Try loading YOLOv8 model if available
+        # NOTE: yolov8n.pt is NOT bundled in the deployment package.
+        # Ultralytics will auto-download it (~6 MB) from their CDN on first run.
+        # Subsequent runs use the cached copy in the ultralytics cache directory.
         self.yolo_model = None
         try:
             from ultralytics import YOLO
-            print("Loading YOLO model for vehicle/plate detection...")
-            self.yolo_model = YOLO('yolov8n.pt')
+            import os
+            model_path = 'yolov8n.pt'
+            if not os.path.exists(model_path):
+                print("YOLO model not found locally — will auto-download yolov8n.pt from Ultralytics CDN (~6 MB)...")
+            else:
+                print("Loading YOLO model from local cache...")
+            self.yolo_model = YOLO(model_path)
             print("YOLO model loaded successfully.")
         except Exception as e:
             print(f"YOLO initialization notice: {e}. Falling back to OpenCV heuristic detector.")
+
 
         # Real-time ANPR state
         self.last_detected_plate = "Scanning..."

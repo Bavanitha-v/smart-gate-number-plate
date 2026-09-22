@@ -1,0 +1,54 @@
+# ============================================================
+# Heroku .slugignore
+# Excludes files from the Heroku deployment slug.
+# Model weights are auto-downloaded at runtime by ultralytics.
+# ============================================================
+
+# ML Model weights (downloaded at startup automatically)
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pkl
+*.bin
+*.weights
+
+# YOLO run outputs
+runs/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Database (auto-created by init_db() at startup)
+*.db
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Logs
+*.log
+logs/
+
+# Git history
+.git/
+.gitignore
+
+# Dev/test files
+seed_db.py
+generate_sample_video.py
+README.md
+
+# IDE
+.vscode/
+.idea/

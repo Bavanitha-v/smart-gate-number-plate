@@ -1,10 +1,26 @@
-﻿# Video files (too large for deployment)
+# ============================================================
+# AI Smart Gate - .gitignore
+# ============================================================
+
+# ML Model weights (auto-downloaded at runtime by ultralytics)
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pkl
+*.bin
+*.weights
+
+# YOLO run outputs
+runs/
+
+# Video files (use external URL or generate at runtime)
 *.mp4
 *.avi
 *.mov
 *.mkv
 
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *.pyo
@@ -14,15 +30,33 @@ __pycache__/
 dist/
 build/
 
-# Database (local only)
+# Database (auto-created at startup by init_db())
 *.db
 *.sqlite3
 
-# Environment
-.env
+# Virtual environments
 venv/
 .venv/
+env/
+ENV/
 
-# OS
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+

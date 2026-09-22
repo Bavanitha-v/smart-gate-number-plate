@@ -1,0 +1,65 @@
+# ============================================================
+# .dockerignore — for Docker, Railway, Render deployments
+# Excludes files from the Docker build context.
+# Model weights are auto-downloaded at runtime by ultralytics.
+# ============================================================
+
+# ML Model weights (downloaded at startup automatically)
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pkl
+*.bin
+*.weights
+
+# YOLO run outputs
+runs/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Database (auto-created by init_db() at startup)
+*.db
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Logs
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+
+# Dev/test files
+seed_db.py
+generate_sample_video.py
+
+# Deployment config not needed inside container
+.slugignore
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
